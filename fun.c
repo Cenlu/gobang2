@@ -13,8 +13,8 @@ int j_cr;
 int j_cc;
 int top;
 char EMPTY_POINT = '+';
-char BLACK_POINT = 'o';
-char WHITE_POINT = 'x';
+char BLACK_POINT = 'x';
+char WHITE_POINT = 'o';
 
 char *FirstMenu[] = {
 	" He ",
@@ -24,9 +24,10 @@ char *FirstMenu[] = {
 
 void draw_map()
 {
-	box(win, ' ', ' ');
 	int r = 0;
 	int c = 0;
+	BLACK_DWHITE;
+	box(win, ' ', ' ');
 	for(r = 0; r < MAP_SIZE; r++)
 		mvwprintw(win, r, c, "+ + + + + + + + + + + + + + +");
 }
@@ -100,6 +101,11 @@ void go_move(int player, int d1, int d2)
 int set_chose(int player)
 {
 	if(map[j_cr][j_cc] == EMPTY_POINT){
+		BLACK_DWHITE;
+		wmove(win, -2, (win->c_len)/2-4);
+		printf("            ");
+		wmove(win, -2, (win->c_len)/2-4);
+		printf("[%d, %d]", j_cr + 1, j_cc + 1);
 		wmove(win, j_cr, j_cc*2);
 		if(player){
 			BLACK_RED;
@@ -120,26 +126,66 @@ int set_chose(int player)
 	return 0;
 }
 
+void go_back()
+{
+	if(!top)
+		return;
+	top--;
+	wmove(win, stack[top].r, stack[top].c*2);
+	BLACK_DWHITE;
+	putchar(EMPTY_POINT);
+	map[stack[top].r][stack[top].c] = EMPTY_POINT;
+
+	if(!top)
+		return;
+	top--;
+	wmove(win, stack[top].r, stack[top].c*2);
+	BLACK_DWHITE;
+	putchar(EMPTY_POINT);
+	map[stack[top].r][stack[top].c] = EMPTY_POINT;
+
+	draw_out_coor(j_cr, j_cc*2);
+	j_cr = stack[top].r;
+	j_cc = stack[top].c;
+	draw_coor(j_cr, j_cc*2);
+}
+
 int go_chose(int player)
 {
 	int ok = 1;
-	int key = -1;
-	while(1){
-		key = getch();
-		if(key == KEY_UP)
-			go_move(player, -1, 0);
-		else if(key == KEY_DOWN)
-			go_move(player, 1, 0);
-		else if(key == KEY_LEFT)
-			go_move(player, 0, -1);
-		else if(key == KEY_RIGHT)
-			go_move(player, 0, 1);
-		else if(key == KEY_ENTER){
-			if(set_chose(player))
-				break;
+	if(player){
+		int key = -1;
+		while(1){
+			key = getch();
+			if(key == KEY_UP)
+				go_move(player, -1, 0);
+			else if(key == KEY_DOWN)
+				go_move(player, 1, 0);
+			else if(key == KEY_LEFT)
+				go_move(player, 0, -1);
+			else if(key == KEY_RIGHT)
+				go_move(player, 0, 1);
+			else if(key == KEY_ENTER){
+				if(set_chose(player))
+					break;
+			}
+			else if(key == KEY_ESC)
+				go_back();
 		}
 	}
-	return 1;
+	else{
+		BLACK_DWHITE;
+		wmove(win, (win->r_len)+2, (win->c_len)/2-8);
+		printf("computer is thinking...");
+		ok = computer_go(player);
+#if 0
+		ok = test(player);
+#endif
+		BLACK_DWHITE;
+		wmove(win, (win->r_len)+2, (win->c_len)/2-8);
+		printf("                       ");
+	}
+	return ok;
 }
 
 int judge_end(int flag, int y, int x)
@@ -197,7 +243,7 @@ void go_play()
 	int player = get_select(FirstMenu);
 	int begr = (LINES - MAP_SIZE) / 2;
 	int begc = (COLS - MAP_SIZE * 2) / 2;
-	win = newwin(begr, begc, MAP_SIZE, 30);
+	win = newwin(begr, begc, MAP_SIZE, MAP_SIZE*2-1);
 	draw_map();
 	init_date();
 	go_first(&player);
@@ -213,8 +259,16 @@ void go_play()
 	while(key != KEY_ENTER && key != '\n' && key != 'q')
 		key = getch();
 
+	BLACK_DWHITE;
+	move(0, 0);
+	printf("                   ");
+	move(1, 0);
+	printf("                   ");
+	move(2, 0);
+	printf("                   ");
+	wmove(win, -2, (win->c_len)/2-4);
+	printf("           ");
 	delwin(win);
-	system("color 07");
 }
 
 void go_help()
@@ -236,7 +290,7 @@ void go_help()
 	mvwprintw(help_win, tr++, tc, "left:    [LEFT]");
 	mvwprintw(help_win, tr++, tc, "right:   [RIGHT]");
 	mvwprintw(help_win, tr++, tc, "confirm: [ENTER]");
-	mvwprintw(help_win, tr++, tc, "back:    [w]");
+	mvwprintw(help_win, tr++, tc, "back:    [ESC]");
 	mvwprintw(help_win, tr++, tc, "quit:    [q]");
 
 	key = getch();

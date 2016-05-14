@@ -20,7 +20,7 @@ int main()
 	int begr = (winr - playrow) / 2;
 	int begc = (winc - playcol) / 2;
 	int select;
-	system("color 07");
+	BLACK_DWHITE;
 	initwin(winr, winc); /* 初始化窗口大小 */
 	cursor(0);
 	win = newwin(begr, begc, playrow, playcol);
@@ -35,7 +35,8 @@ int main()
 	}while(select != 2 && select != 'q');
 
 	delwin(win);
-	system("color 07");
+	BLACK_DWHITE;
+	system("cls");
 	cursor(1);
 	return 0;
 }

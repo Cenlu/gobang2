@@ -2,6 +2,7 @@
 #include <conio.h>
 #include "curses.h"
 #include "face.h"
+#include "fun.h"
 #include "color.h"
 
 char *Menu[] = {
@@ -27,12 +28,10 @@ int main()
 
 	do{
 		select = get_select(Menu);
-#if 0
 		switch(select){
 			case 0 : go_play(); break;
 			case 1 : go_help(); break;
 		}
-#endif
 	}while(select != 2 && select != 'q');
 
 	delwin(win);

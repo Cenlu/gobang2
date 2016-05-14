@@ -22,6 +22,7 @@ void box(WINDOW *win, char rc, char cc);
 void clrbox(WINDOW *win);
 void move(int y, int x);
 void wmove(WINDOW *win, int y, int x);
+void mvwprintw(WINDOW *win, int r, int c, char *str);
 void initwin();
 void cursor(int flag);
 

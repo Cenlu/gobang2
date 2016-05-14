@@ -38,6 +38,12 @@ void wmove(WINDOW *win, int y, int x)
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), c);   
 }  
 
+void mvwprintw(WINDOW *win, int r, int c, char *str)
+{
+	wmove(win, r, c);
+	printf("%s", str);
+}
+
 WINDOW *newwin(int begr, int begc, int rlen, int clen)
 {
 	WINDOW *win = (WINDOW *)malloc(sizeof(WINDOW));

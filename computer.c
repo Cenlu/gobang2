@@ -17,7 +17,8 @@
 int cpoint[20][20][4];
 const int G5 = 20000;
 const int LIVE4 = 2000;
-const int C4 = 300;
+const int C4 = 300; /* 冲四 */
+const int RC4 = 250; /* 跳冲四 */
 const int LIVE3 = 450;
 const int RLIVE3 = 300;
 const int LIVE2 = 100;
@@ -37,16 +38,17 @@ typedef struct{
 
 typedef struct{
 	int g5;
-	int l4, l3, rl3, l2, rl2, d4, d3, d2;
+	int l4, l3, rc4, rl3, l2, rl2, d4, d3, d2;
 	int c4, m3;
 }Points;
 
 typedef struct{
 	int y, x;
 	int chose;
-	int pointb;
+	int pointb; /* 该点黑棋得分 */
 	int pointw;
-	int killb, killw;
+	int killb; /* 该点黑棋情形，3 为成五，2 为绝杀，1 为双活三 */
+	int killw;
 }Subpoints;
 
 int state[20][20];
@@ -102,7 +104,7 @@ void cal_chess(Points *po, Coor *co, int d1, int d2)
 	else if(mid == 3){
 		int ok = 0; /* 同一个方向上如果可形成活三和冲四，舍弃活三  */
 		if((lempty[0] == 1 && lchess[1] >= 1) || (rempty[0] == 1 && rchess[1] >= 1)){
-			po->c4++;
+			po->rc4++;
 			ok = 1;
 		}
 		if(!ok && lempty[0] + rempty[0] >= 3 && lempty[0] >= 1 && rempty[0] >= 1){
@@ -117,7 +119,7 @@ void cal_chess(Points *po, Coor *co, int d1, int d2)
 	else if(mid == 2){
 		int ok = 0;
 		if((lempty[0] == 1 && lchess[1] >= 2) || (rempty[0] == 1 && rchess[1] >= 2)){
-			po->c4++;
+			po->rc4++;
 			ok = 1;
 		}
 		if(!ok && ((lempty[0] == 1 && lchess[1] == 1 && rempty[0] >= 1 && lempty[1] >= 1)
@@ -135,7 +137,7 @@ void cal_chess(Points *po, Coor *co, int d1, int d2)
 	else if(mid == 1){
 		int ok = 0;
 		if((lempty[0] == 1 && lchess[1] >= 3) || (rempty[0] == 1 && rchess[1] >= 3)){
-			po->c4++;
+			po->rc4++;
 			ok = 1;
 		}
 		if(!ok && ((lempty[0] == 1 && lchess[1] == 2 && rempty[0] >= 1 && lempty[1] >= 1)
@@ -165,8 +167,9 @@ int get_points(Coor *co, int *kill)
 	int y = co->y;
 	int x = co->x;
 	int ans = 0;
+	int nc4, nl3;
 	*kill = 0;
-	po.g5 = po.l4 = po.l3 = po.rl3 = po.l2 = po.rl2 = po.c4 = po.m3 = po.d4 = po.d3 = po.d2 = 0;
+	po.g5 = po.rc4 = po.l4 = po.l3 = po.rl3 = po.l2 = po.rl2 = po.c4 = po.m3 = po.d4 = po.d3 = po.d2 = 0;
 	tco.player = player;
 	tco.y = y;
 	tco.x = x;
@@ -176,19 +179,21 @@ int get_points(Coor *co, int *kill)
 	cal_chess(&po, &tco, 1, 1);
 	cal_chess(&po, &tco, -1, 1);
 
+	nc4 = po.c4 + po.rc4;
+	nl3 = po.l3 + po.rl3;
 	if(po.g5 >= 1) { /* 成五 */
 		*kill = 3;
 		ans = G5;
 	}
-	else if(po.l4 >= 1 || po.c4 >= 2 || (po.c4 && (po.l3 || po.rl3))){ /* 绝杀 */
+	else if(po.l4 >= 1 || nc4 >= 2 || (nc4 && nl3)){ /* 绝杀 */
 		*kill = 2;
 		ans = LIVE4;
 	}
 	else{
-		if(po.l3 + po.rl3 >= 2) { /* 双活三 */
+		if(nl3 >= 2) { /* 双活三 */
 			*kill = 1;
 		}
-		ans = po.l3*LIVE3 + po.rl3*RLIVE3 + po.l2*LIVE2 + po.rl2*RLIVE2 + po.c4*C4 + po.m3*M3 + po.d4*DEAD4 + po.d3*DEAD3 + po.d2*DEAD2;
+		ans = po.l3*LIVE3 + po.rl3*RLIVE3 + po.l2*LIVE2 + po.rl2*RLIVE2 + po.c4*C4 + po.rc4*RC4 + po.m3*M3 + po.d4*DEAD4 + po.d3*DEAD3 + po.d2*DEAD2;
 	}
 	return ans;
 }
@@ -307,13 +312,13 @@ int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 			comy = sp[0].y;
 			comx = sp[0].x;
 		}
-		for(i = 0; i < MAP_SIZE && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
+		for(i = 0; i < 20 && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
 			int val;
 			if(sp[i].killw > oppkill)
 				oppkill = sp[i].killw; /* 在遍历可行解的时候记录对方威胁性 */
 #if 1
-			/* 己方可一步成五 || 对方能一步成五 || 己方可一步成绝杀棋 ||  己方可一步成双活三而对方不能一步成绝杀棋*/
-			if(sp[i].killb == 3 || oppkill >= 3 || sp[i].killb == 2 || (sp[i].killb == 1 && oppkill < 2)){
+			/* 己方可一步成五 || (对方不能一步成五 && 己方可一步成绝杀棋) ||  己方可一步成双活三而对方不能一步成绝杀棋*/
+			if(sp[i].killb == 3 || (oppkill < 3 && sp[i].killb == 2) || (sp[i].killb == 1 && oppkill < 2)){
 				if(!depth){
 					comy = sp[i].y;
 					comx = sp[i].x;
@@ -345,12 +350,12 @@ int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 		Subpoints sp[250];
 		int n = set_order(sp, player);
 		int oppkill = 0;
-		for(i = 0; i < MAP_SIZE && i < n; i++){
+		for(i = 0; i < 20 && i < n; i++){
 			int val;
 			if(sp[i].killb > oppkill)
 				oppkill = sp[i].killb; /* 在遍历可行解的时候记录对方威胁性 */
 #if 1
-			if(sp[i].killw == 3 || oppkill >= 3 || sp[i].killw == 2 || (sp[i].killw == 1 && oppkill < 2)){
+			if(sp[i].killw == 3 || (oppkill < 3 && sp[i].killw == 2) || (sp[i].killw == 1 && oppkill < 2)){
 				beta = -inf;
 				break;
 			}
@@ -374,10 +379,11 @@ int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 int test(int player)
 {
 	Subpoints sp[300];
-	Coor co;
+	Coor co, kb, kw;
 	int n = 0;
 	int i, j;
 	int yes = 0;
+	int killb, killw;
 	memset(cpoint, 0, sizeof(cpoint));
 	for(i = 0; i < MAP_SIZE; i++){
 		for(j = 0; j < MAP_SIZE; j++){
@@ -405,12 +411,7 @@ int test(int player)
 	for(i = 0; i < MAP_SIZE; i++){
 		move(i, 0);
 		for(j = 0; j < MAP_SIZE; j++){
-			int t;
-			if(cpoint[i][j][2] > cpoint[i][j][3])
-				t = cpoint[i][j][2];
-			else
-				t = cpoint[i][j][3];
-			printf("%5d", t);
+			printf("%5d", cpoint[i][j][0] + cpoint[i][j][1]);
 		}
 	}
 #endif
@@ -421,11 +422,10 @@ int test(int player)
 				sp[n].y = i;
 				sp[n].x = j;
 				co.y = i;
-				co.x = j;
-				co.player = 0;
-				sp[n].pointb = get_points(&co, &sp[n].killb);
-				co.player = 1;
-				sp[n].pointw = get_points(&co, &sp[n].killw);
+				sp[n].pointb = cpoint[i][j][2];
+				sp[n].pointw = cpoint[i][j][3];
+				sp[n].killb = cpoint[i][j][0];
+				sp[n].killw = cpoint[i][j][1];
 #if 0
 				if(sp[n].pointb >= sp[n].pointw)
 					sp[n].chose = sp[n].pointb;
@@ -437,8 +437,32 @@ int test(int player)
 		}
 	}
 	qsort(sp, n, sizeof(Subpoints), compare);
-	comy = sp[0].y;
-	comx = sp[0].x;
+	killb = killw = 0;
+	for(i = 0 ; i < n; i++){
+		if(sp[i].killb > killb){
+			killb = sp[i].killb;
+			kb.y = sp[i].y;
+			kb.x = sp[i].x;
+		}
+		if(sp[i].killw > killw){
+			killw = sp[i].killw;
+			kw.y = sp[i].y;
+			kw.x = sp[i].x;
+		}
+	}
+	if(killb == 3) {comy = kb.y; comx = kb.x;}
+	else if(killw == 3) {comy = kw.y; comx = kw.x;}
+	else if(killb == 2) {comy = kb.y; comx = kb.x;}
+	else if(killw == 2) {comy = kw.y; comx = kw.x;}
+	else if(killb == 1) {comy = kb.y; comx = kb.x;}
+	else if(killw == 1) {comy = kw.y; comx = kw.x;}
+	else {comy = sp[0].y; comx = sp[0].x;}
+#if 0
+	move(0, 0);
+	printf("                       ");
+	move(0, 0);
+	printf("kb=%d kw=%d", killb, killw);
+#endif
 	if(map[comy][comx] == EMPTY_POINT){
 		draw_out_coor(j_cr, j_cc*2);
 		j_cr = comy;

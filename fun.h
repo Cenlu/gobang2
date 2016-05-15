@@ -22,8 +22,8 @@ void draw_coor(int y, int x);
 void draw_out_coor(int y, int x);
 void go_play();
 void go_help();
+char judge_end(int player, int y, int x);
 int set_chose(int player);
-int judge_end(int player, int y, int x);
 int computer_go(int player);
 int test(int player);
 

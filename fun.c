@@ -17,8 +17,8 @@ char BLACK_POINT = 'x';
 char WHITE_POINT = 'o';
 
 char *FirstMenu[] = {
-	" He ",
-	" Me ",
+	" He first",
+	" I  first",
 	NULL
 };
 
@@ -153,7 +153,7 @@ void go_back()
 int go_chose(int player)
 {
 	int ok = 1;
-	if(player){
+	if(player){ /* 玩家落子 */
 		int key = -1;
 		while(1){
 			key = getch();
@@ -170,25 +170,25 @@ int go_chose(int player)
 					break;
 			}
 			else if(key == KEY_ESC)
-				go_back();
+				go_back(); /* 悔棋 */
 		}
 	}
-	else{
+	else{ /* 电脑落子 */
 		BLACK_DWHITE;
-		wmove(win, (win->r_len)+2, (win->c_len)/2-8);
+		wmove(win, (win->r_len)+2, (win->c_len)/2-10);
 		printf("computer is thinking...");
-		ok = computer_go(player);
+		ok = computer_go(player); /* 多步搜索 */
 #if 0
-		ok = test(player);
+		ok = test(player); /* 一步搜索 */
 #endif
 		BLACK_DWHITE;
-		wmove(win, (win->r_len)+2, (win->c_len)/2-8);
+		wmove(win, (win->r_len)+2, (win->c_len)/2-10);
 		printf("                       ");
 	}
 	return ok;
 }
 
-int judge_end(int flag, int y, int x)
+char judge_end(int flag, int y, int x)
 {
 	int i, j;
 	int count = 0;
@@ -233,33 +233,40 @@ int judge_end(int flag, int y, int x)
 		i++; j--;
 	}
 	if(count >= 4) return player;
-	return -1;
+	return EMPTY_POINT;
 }
 
 void go_play()
 {
-	int winner = -1;
 	int key = -1;
-	int player = get_select(FirstMenu);
+	int player = get_select(FirstMenu); /* 选择先手 */
 	int begr = (LINES - MAP_SIZE) / 2;
 	int begc = (COLS - MAP_SIZE * 2) / 2;
-	win = newwin(begr, begc, MAP_SIZE, MAP_SIZE*2-1);
-	draw_map();
+	char winner = EMPTY_POINT;
+
+	win = newwin(begr, begc, MAP_SIZE, MAP_SIZE*2-1); /* 创建地图窗口 */
+	draw_map(); /* 绘制地图 */
 	init_date();
 	go_first(&player);
 
-	while(winner == -1){
-		if(!go_chose(player))
+	while(winner == EMPTY_POINT){
+		if(!go_chose(player)) /* 选择落子，如没子可落则返回0 */
 			break;
-		winner = judge_end(player, j_cr, j_cc);
+		winner = judge_end(player, j_cr, j_cc); /* 判断结束标志 */
 		player ^= 1;
 	}
+
+	BLACK_DWHITE;
+	wmove(win, (win->r_len)+2, (win->c_len)/2-5);
+	if(winner != EMPTY_POINT)
+		printf("winner: %c", winner);
+	else
+		printf("- draw -");
 
 	key = getch();
 	while(key != KEY_ENTER && key != '\n' && key != 'q')
 		key = getch();
 
-	BLACK_DWHITE;
 	move(0, 0);
 	printf("                   ");
 	move(1, 0);
@@ -267,7 +274,9 @@ void go_play()
 	move(2, 0);
 	printf("                   ");
 	wmove(win, -2, (win->c_len)/2-4);
-	printf("           ");
+	printf("                   ");
+	wmove(win, (win->r_len)+2, (win->c_len)/2-5);
+	printf("                   ");
 	delwin(win);
 }
 

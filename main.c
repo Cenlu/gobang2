@@ -22,7 +22,7 @@ int main()
 	int select;
 	BLACK_DWHITE;
 	initwin(winr, winc); /* 初始化窗口大小 */
-	cursor(0);
+	cursor(0); /* 隐藏光标 */
 	win = newwin(begr, begc, playrow, playcol);
 	box(win, '|', '*'); /* 绘制游戏窗口 */
 
@@ -34,8 +34,8 @@ int main()
 		}
 	}while(select != 2 && select != 'q');
 
-	delwin(win);
 	BLACK_DWHITE;
+	delwin(win);
 	system("cls");
 	cursor(1);
 	return 0;

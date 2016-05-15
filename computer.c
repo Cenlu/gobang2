@@ -9,6 +9,11 @@
 #define JUDGE_EDGE(y, x) \
 	((y < 0 || y > 14 || x < 0 || x > 14) ? 0 : 1)
 
+/* cpoint[i][j][2] 表示电脑得分 */
+/* cpoint[i][j][3] 表示玩家得分 */
+/* cpoint[i][j][0] 表示电脑绝杀棋情况 */
+/* cpoint[i][j][1] 表示玩家绝杀棋情况 */
+
 int cpoint[20][20][4];
 const int G5 = 20000;
 const int LIVE4 = 2000;
@@ -207,8 +212,8 @@ int cal_all_points(int player)
 {
 	int i, j;
 	int ans = 0;
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			if(state[i][j] == -1){
 				if(player)
 					ans += cpoint[i][j][3];
@@ -224,7 +229,7 @@ int cal_all_points(int player)
 void change_cpoint(int y, int x)
 {
 	int i, j;
-	for(i = 0; i < 15; i++){
+	for(i = 0; i < MAP_SIZE; i++){
 		if(state[y][i] == -1){
 			cal_point(y, i);
 		}
@@ -232,13 +237,13 @@ void change_cpoint(int y, int x)
 			cal_point(i, x);
 		}
 	}
-	for(i = 0; i < 15; i++){
+	for(i = 0; i < MAP_SIZE; i++){
 		j = i - (y - x);
-		if(0 < j && j < 15 && state[i][j] == -1){
+		if(0 < j && j < MAP_SIZE && state[i][j] == -1){
 			cal_point(i, j);
 		}
 		j = (y + x) - i;
-		if(0 < j && j < 15 && state[i][j] == -1){
+		if(0 < j && j < MAP_SIZE && state[i][j] == -1){
 			cal_point(i, j);
 		}
 	}
@@ -248,8 +253,8 @@ int set_order(Subpoints *od, int player)
 {
 	int i, j;
 	int n = 0;
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			if(state[i][j] == -1){
 				od[n].y = i;
 				od[n].x = j;
@@ -284,25 +289,25 @@ int set_order(Subpoints *od, int player)
 int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 {
 	int i;
-	counter++;
-	if(judge_end(player^1, y, x) != -1){
+	counter++; /* 记录搜索节点数 */
+	if(judge_end(player^1, y, x) != EMPTY_POINT){ /* 某方成五，结束返回 */
 		return player?inf:-inf;
 	}
-	if(depth >= DEPTH){
+	if(depth >= DEPTH){ /* 达到搜索深度限制，返回估分 */
 		int s1 = cal_all_points(0);
 		int s2 = cal_all_points(1);
 		return s1 - s2;
 	}
 	
-	if(!player){
+	if(!player){ /* 电脑 */
 		Subpoints sp[250];
-		int n = set_order(sp, player);
+		int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
 		int oppkill = 0;
 		if(!depth){
 			comy = sp[0].y;
 			comx = sp[0].x;
 		}
-		for(i = 0; i < 15 && i < n; i++){
+		for(i = 0; i < MAP_SIZE && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
 			int val;
 			if(sp[i].killw > oppkill)
 				oppkill = sp[i].killw; /* 在遍历可行解的时候记录对方威胁性 */
@@ -317,11 +322,12 @@ int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 				break;
 			}
 #endif
-			state[sp[i].y][sp[i].x] = player;
-			change_cpoint(sp[i].y, sp[i].x);
+			state[sp[i].y][sp[i].x] = player; /* 在 (y, x) 落子 */
+			change_cpoint(sp[i].y, sp[i].x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
 			val = alpha_beta(player^1, depth+1, sp[i].y, sp[i].x, alpha, beta);
 			state[sp[i].y][sp[i].x] = -1;
 			change_cpoint(sp[i].y, sp[i].x);
+
 			if(val > alpha){
 				alpha = val;
 				if(!depth){
@@ -335,11 +341,11 @@ int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 		}
 		return alpha;
 	}
-	else{
+	else{ /* 玩家 */
 		Subpoints sp[250];
 		int n = set_order(sp, player);
 		int oppkill = 0;
-		for(i = 0; i < 15 && i < n; i++){
+		for(i = 0; i < MAP_SIZE && i < n; i++){
 			int val;
 			if(sp[i].killb > oppkill)
 				oppkill = sp[i].killb; /* 在遍历可行解的时候记录对方威胁性 */
@@ -373,8 +379,8 @@ int test(int player)
 	int i, j;
 	int yes = 0;
 	memset(cpoint, 0, sizeof(cpoint));
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			if(map[i][j] == EMPTY_POINT){
 				yes++;
 				state[i][j] = -1;
@@ -388,17 +394,17 @@ int test(int player)
 		}
 	}
 	if(!yes) return 0;
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			if(state[i][j] == -1){
 				cal_point(i, j);
 			}
 		}
 	}
 #if 0
-	for(i = 0; i < 15; i++){
+	for(i = 0; i < MAP_SIZE; i++){
 		move(i, 0);
-		for(j = 0; j < 15; j++){
+		for(j = 0; j < MAP_SIZE; j++){
 			int t;
 			if(cpoint[i][j][2] > cpoint[i][j][3])
 				t = cpoint[i][j][2];
@@ -408,8 +414,8 @@ int test(int player)
 		}
 	}
 #endif
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			int t = state[i][j];
 			if(t == -1){
 				sp[n].y = i;
@@ -451,10 +457,10 @@ int computer_go(int player)
 	int yes = 0;
 	clock_t beg_t;
 	clock_t end_t;
-	double use_t;
+	double use_t; /* 记录搜索时间 */
 	memset(cpoint, 0, sizeof(cpoint));
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			if(map[i][j] == EMPTY_POINT){
 				yes++;
 				state[i][j] = -1;
@@ -467,14 +473,14 @@ int computer_go(int player)
 			}
 		}
 	}
-	for(i = 0; i < 15; i++){
-		for(j = 0; j < 15; j++){
+	for(i = 0; i < MAP_SIZE; i++){
+		for(j = 0; j < MAP_SIZE; j++){
 			if(state[i][j] == -1){
-				cal_point(i, j);
+				cal_point(i, j); /* 计算每个可落子点的分数 */
 			}
 		}
 	}
-	if(!yes) return 0;
+	if(!yes) return 0; /* 没棋可落，和棋 */
 	comy = comx = 0;
 	counter = 0;
 	move(0, 0);
@@ -485,22 +491,22 @@ int computer_go(int player)
 	printf("                     ");
 
 	beg_t = clock();
-	alpha_beta(player, 0, j_cr, j_cc, alpha, beta);
+	alpha_beta(player, 0, j_cr, j_cc, alpha, beta); /* 搜索 */
 	end_t = clock();
 
 	use_t = (double)(end_t - beg_t) /  CLOCKS_PER_SEC;
 	BLACK_DWHITE;
 	move(0, 0);
-	printf("state: %d", counter);
+	printf("state: %d", counter); /* 总搜索节点 */
 	move(1, 0);
-	printf("time:  %.2lf", use_t);
+	printf("time:  %.2lf", use_t); /* 总搜索时间 */
 	move(2, 0);
-	printf("pers:  %.2lf", counter / use_t);
+	printf("pers:  %.2lf", counter / use_t); /* 平均速度: 状态数/每秒 */
 	if(map[comy][comx] == EMPTY_POINT){
 		draw_out_coor(j_cr, j_cc*2);
 		j_cr = comy;
 		j_cc = comx;
-		set_chose(player);
+		set_chose(player); /* 落子 */
 		draw_coor(j_cr, j_cc*2);
 	}
 	return 1;

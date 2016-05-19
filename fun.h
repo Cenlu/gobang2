@@ -6,10 +6,30 @@
 #endif
 
 typedef struct{
-	int R, C;
-	int r, c;
 	int player;
-}Stack;
+	int y, x;
+}Coor;
+
+typedef struct{
+	long long check;
+	int val;
+}HashElem;
+
+typedef struct{
+	int g5;
+	int l4, l3, rc4, rl3, l2, rl2, d4, d3, d2;
+	int c4, m3;
+}Points;
+
+typedef struct{
+	int y, x;
+	int chose;
+	int pointb; /* 该点黑棋得分 */
+	int pointw;
+	int killb; /* 该点黑棋情形，3 为成五，2 为绝杀，1 为双活三 */
+	int killw;
+}Subpoints;
+
 
 extern int j_cr;
 extern int j_cc;

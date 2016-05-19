@@ -6,7 +6,7 @@
 #include "color.h"
 #define MAP_SIZE 15
 
-Stack stack[5000];
+Coor stack[5000];
 char map[MAP_SIZE+5][MAP_SIZE+5];
 WINDOW *win;
 int j_cr;
@@ -117,8 +117,8 @@ int set_chose(int player)
 			putchar(BLACK_POINT);
 			map[j_cr][j_cc] = BLACK_POINT;
 		}
-		stack[top].r = j_cr;
-		stack[top].c = j_cc;
+		stack[top].y = j_cr;
+		stack[top].x = j_cc;
 		stack[top].player = player;
 		top++;
 		return 1;
@@ -131,22 +131,22 @@ void go_back()
 	if(!top)
 		return;
 	top--;
-	wmove(win, stack[top].r, stack[top].c*2);
+	wmove(win, stack[top].y, stack[top].x*2);
 	BLACK_DWHITE;
 	putchar(EMPTY_POINT);
-	map[stack[top].r][stack[top].c] = EMPTY_POINT;
+	map[stack[top].y][stack[top].x] = EMPTY_POINT;
 
 	if(!top)
 		return;
 	top--;
-	wmove(win, stack[top].r, stack[top].c*2);
+	wmove(win, stack[top].y, stack[top].x*2);
 	BLACK_DWHITE;
 	putchar(EMPTY_POINT);
-	map[stack[top].r][stack[top].c] = EMPTY_POINT;
+	map[stack[top].y][stack[top].x] = EMPTY_POINT;
 
 	draw_out_coor(j_cr, j_cc*2);
-	j_cr = stack[top].r;
-	j_cc = stack[top].c;
+	j_cr = stack[top].y;
+	j_cc = stack[top].x;
 	draw_coor(j_cr, j_cc*2);
 }
 

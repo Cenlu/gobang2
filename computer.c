@@ -31,25 +31,6 @@ const int inf = 9000000;
 const int DEPTH = 6;
 int counter;
 
-typedef struct{
-	int player;
-	int y, x;
-}Coor;
-
-typedef struct{
-	int g5;
-	int l4, l3, rc4, rl3, l2, rl2, d4, d3, d2;
-	int c4, m3;
-}Points;
-
-typedef struct{
-	int y, x;
-	int chose;
-	int pointb; /* 该点黑棋得分 */
-	int pointw;
-	int killb; /* 该点黑棋情形，3 为成五，2 为绝杀，1 为双活三 */
-	int killw;
-}Subpoints;
 
 int state[20][20];
 int comy, comx;
@@ -295,9 +276,11 @@ int alpha_beta(int player, int depth, int y, int x, int alpha, int beta)
 {
 	int i;
 	counter++; /* 记录搜索节点数 */
+#if 0
 	if(judge_end(player^1, y, x) != EMPTY_POINT){ /* 某方成五，结束返回 */
 		return player?inf:-inf;
 	}
+#endif
 	if(depth >= DEPTH){ /* 达到搜索深度限制，返回估分 */
 		int s1 = cal_all_points(0);
 		int s2 = cal_all_points(1);

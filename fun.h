@@ -1,9 +1,12 @@
 #ifndef FUN_H
 #define FUN_H
 
+#define HASHSIZE (1<<25)
 #ifndef MAP_SIZE
 #define MAP_SIZE 15
 #endif
+
+typedef long long LL;
 
 typedef struct{
 	int player;
@@ -11,8 +14,10 @@ typedef struct{
 }Coor;
 
 typedef struct{
-	long long check;
+	LL check;
+	enum {HASHALPHA, HASHBETA, HASHEXACT} Type;
 	int val;
+	int depth;
 }HashElem;
 
 typedef struct{

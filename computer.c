@@ -31,6 +31,7 @@ const int inf = 9000000;
 const int unknow = 9900000;
 const int DEPTH = 6;
 int counter;
+int find;
 
 HashElem hashtable[HASHSIZE];
 LL zobrist[3][20][20];
@@ -292,9 +293,9 @@ int set_order(Subpoints *od, int player)
 	return n;
 }
 
-int cal_zobrist()
+LL cal_zobrist()
 {
-	int z = 0;
+	LL z = 0;
 	int i, j;
 	for(i = 0; i < MAP_SIZE; i++){
 		for(j = 0; j < MAP_SIZE; j++){
@@ -312,6 +313,7 @@ int cal_zobrist()
 void init_hashtable()
 {
 	int i;
+	find = 0;
 	for(i = 0; i < HASHSIZE; i++)
 		hashtable[i].val = unknow;
 }
@@ -323,6 +325,7 @@ int find_in_hash(int depth, int alpha, int beta, LL st)
 	if(val == unknow)
 		return val;
 	if(hashtable[p].check == st){
+		find++;
 		if(hashtable[p].depth >= depth){
 			if(hashtable[p].type == HASHEXACT){
 				return val;
@@ -353,7 +356,7 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 	int val;
 	counter++; /* 记录搜索节点数 */
 
-#if 0
+#if 1
 	if((val = find_in_hash(depth, alpha, beta, st)) != unknow){
 		return val;
 	}
@@ -368,11 +371,12 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 	
 	if(!player){ /* 电脑 */
 		Subpoints sp[250];
+		LL tst = st;
 		int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
 		int oppkill = 0;
 		int y, x;
 		int hashf = HASHALPHA;
-		if(!depth){
+		if(depth == DEPTH){
 			comy = sp[0].y;
 			comx = sp[0].x;
 		}
@@ -384,10 +388,11 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 #if 1
 			/* 己方可一步成五 || (对方不能一步成五 && 己方可一步成绝杀棋) ||  己方可一步成双活三而对方不能一步成绝杀棋*/
 			if(sp[i].killb == 3 || (oppkill < 3 && sp[i].killb == 2) || (sp[i].killb == 1 && oppkill < 2)){
-				if(!depth){
+				if(depth == DEPTH){
 					comy = y;
 					comx = x;
 				}
+				tst = st;
 				alpha = inf;
 				break;
 			}
@@ -396,28 +401,32 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 			st ^= zobrist[0][y][x];
 			change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
 			val = alpha_beta(player^1, depth-1, alpha, beta, st);
-			state[y][x] = -1;
-			st ^= zobrist[0][y][x];
-			change_cpoint(y, x);
 
 			if(val > alpha){
-				if(!depth){
+				if(depth == DEPTH){
 					comy = y;
 					comx = x;
 				}
 				hashf = HASHEXACT;
+				tst = st;
 				alpha = val;
 			}
+
+			state[y][x] = -1;
+			st ^= zobrist[0][y][x];
+			change_cpoint(y, x);
+
 			if(alpha >= beta){ /* 千万不能把等号去掉！！！ */
-				record_hash(depth, beta, st, HASHBETA);
+				record_hash(depth, beta, tst, HASHBETA);
 				return beta;
 			}
 		}
-		record_hash(depth, alpha, st, HASHEXACT);
+		record_hash(depth, alpha, tst, HASHEXACT);
 		return alpha;
 	}
 	else{ /* 玩家 */
 		Subpoints sp[250];
+		LL tst = st;
 		int n = set_order(sp, player);
 		int oppkill = 0;
 		int y, x;
@@ -429,6 +438,7 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 				oppkill = sp[i].killb; /* 在遍历可行解的时候记录对方威胁性 */
 #if 1
 			if(sp[i].killw == 3 || (oppkill < 3 && sp[i].killw == 2) || (sp[i].killw == 1 && oppkill < 2)){
+				tst = st;
 				beta = -inf;
 				break;
 			}
@@ -437,22 +447,23 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 			st ^= zobrist[1][y][x];
 			change_cpoint(y, x);
 			val = alpha_beta(player^1, depth-1, alpha, beta, st);
+
+			if(val < beta){
+				hashf = HASHEXACT;
+				tst = st;
+				beta = val;
+			}
+
 			state[y][x] = -1;
 			st ^= zobrist[1][y][x];
 			change_cpoint(y, x);
 
-
-			if(val < beta){
-				hashf = HASHEXACT;
-				beta = val;
-			}
-
 			if(alpha >= beta){
-				record_hash(depth, alpha, st, HASHALPHA);
+				record_hash(depth, alpha, tst, HASHALPHA);
 				return alpha;
 			}
 		}
-		record_hash(depth, beta, st, HASHEXACT);
+		record_hash(depth, beta, tst, HASHEXACT);
 		return beta;
 	}
 }
@@ -556,10 +567,10 @@ int test(int player)
 
 int computer_go(int player)
 {
+	LL st;
 	int alpha = -inf;
 	int beta = inf;
 	int yes;
-	int st;
 	clock_t beg_t;
 	clock_t end_t;
 	double use_t; /* 记录搜索时间 */
@@ -570,7 +581,7 @@ int computer_go(int player)
 	comy = comx = 0;
 	counter = 0;
 	move(0, 0);
-	printf("                     ");
+	printf("                                 ");
 	move(1, 0);
 	printf("                     ");
 	move(2, 0);
@@ -588,7 +599,7 @@ int computer_go(int player)
 	use_t = (double)(end_t - beg_t) /  CLOCKS_PER_SEC;
 	BLACK_DWHITE;
 	move(0, 0);
-	printf("state: %d", counter); /* 总搜索节点 */
+	printf("state: %d find: %d", counter, find); /* 总搜索节点 */
 	move(1, 0);
 	printf("time:  %.2lf", use_t); /* 总搜索时间 */
 	move(2, 0);

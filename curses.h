@@ -23,7 +23,7 @@ void clrbox(WINDOW *win);
 void move(int y, int x);
 void wmove(WINDOW *win, int y, int x);
 void mvwprintw(WINDOW *win, int r, int c, char *str);
-void initwin();
+void initwin(int y, int x);
 void cursor(int flag);
 
 #endif

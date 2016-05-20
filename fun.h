@@ -7,6 +7,7 @@
 #endif
 
 typedef long long LL;
+typedef enum {HASHALPHA, HASHBETA, HASHEXACT} Type;
 
 typedef struct{
 	int player;
@@ -15,7 +16,7 @@ typedef struct{
 
 typedef struct{
 	LL check;
-	enum {HASHALPHA, HASHBETA, HASHEXACT} Type;
+	Type type;
 	int val;
 	int depth;
 }HashElem;

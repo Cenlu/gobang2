@@ -28,6 +28,7 @@ const int DEAD4 = -10;
 const int DEAD3 = -10;
 const int DEAD2 = -10;
 const int inf = 9000000;
+const int unknow = 9900000;
 const int DEPTH = 6;
 int counter;
 
@@ -308,13 +309,60 @@ int cal_zobrist()
 	return z;
 }
 
-int alpha_beta(int player, int depth, int alpha, int beta, int st)
+void init_hashtable()
 {
 	int i;
+	for(i = 0; i < HASHSIZE; i++)
+		hashtable[i].val = unknow;
+}
+
+int find_in_hash(int depth, int alpha, int beta, LL st)
+{
+	int p = (st&(HASHSIZE-1));
+	int val = hashtable[p].val;
+	if(val == unknow)
+		return val;
+	if(hashtable[p].check == st){
+		if(hashtable[p].depth >= depth){
+			if(hashtable[p].type == HASHEXACT){
+				return val;
+			}
+			if(hashtable[p].type == HASHALPHA && val <= alpha){
+				return alpha;
+			}
+			if(hashtable[p].type == HASHBETA && val >= beta){
+				return beta;
+			}
+		}
+	}
+	return unknow;
+}
+
+void record_hash(int depth, int val, LL st, Type type)
+{
+	int p = (st&(HASHSIZE-1));
+	hashtable[p].check = st;
+	hashtable[p].val = val;
+	hashtable[p].depth = depth;
+	hashtable[p].type = type;
+}
+
+int alpha_beta(int player, int depth, int alpha, int beta, LL st)
+{
+	int i;
+	int val;
 	counter++; /* 记录搜索节点数 */
-	if(depth >= DEPTH){ /* 达到搜索深度限制，返回估分 */
+
+#if 0
+	if((val = find_in_hash(depth, alpha, beta, st)) != unknow){
+		return val;
+	}
+#endif
+
+	if(depth == 0){ /* 达到搜索深度限制，返回估分 */
 		int s1 = cal_all_points(0);
 		int s2 = cal_all_points(1);
+		record_hash(depth, s1-s2, st, HASHEXACT);
 		return s1 - s2;
 	}
 	
@@ -323,12 +371,12 @@ int alpha_beta(int player, int depth, int alpha, int beta, int st)
 		int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
 		int oppkill = 0;
 		int y, x;
+		int hashf = HASHALPHA;
 		if(!depth){
 			comy = sp[0].y;
 			comx = sp[0].x;
 		}
 		for(i = 0; i < 20 && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
-			int val;
 			y = sp[i].y;
 			x = sp[i].x;
 			if(sp[i].killw > oppkill)
@@ -347,22 +395,25 @@ int alpha_beta(int player, int depth, int alpha, int beta, int st)
 			state[y][x] = player; /* 在 (y, x) 落子 */
 			st ^= zobrist[0][y][x];
 			change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
-			val = alpha_beta(player^1, depth+1, alpha, beta, st);
+			val = alpha_beta(player^1, depth-1, alpha, beta, st);
 			state[y][x] = -1;
 			st ^= zobrist[0][y][x];
 			change_cpoint(y, x);
 
 			if(val > alpha){
-				alpha = val;
 				if(!depth){
 					comy = y;
 					comx = x;
 				}
+				hashf = HASHEXACT;
+				alpha = val;
 			}
 			if(alpha >= beta){ /* 千万不能把等号去掉！！！ */
-				return alpha;
+				record_hash(depth, beta, st, HASHBETA);
+				return beta;
 			}
 		}
+		record_hash(depth, alpha, st, HASHEXACT);
 		return alpha;
 	}
 	else{ /* 玩家 */
@@ -370,8 +421,8 @@ int alpha_beta(int player, int depth, int alpha, int beta, int st)
 		int n = set_order(sp, player);
 		int oppkill = 0;
 		int y, x;
+		int hashf = HASHBETA;
 		for(i = 0; i < 20 && i < n; i++){
-			int val;
 			y = sp[i].y;
 			x = sp[i].x;
 			if(sp[i].killb > oppkill)
@@ -385,17 +436,23 @@ int alpha_beta(int player, int depth, int alpha, int beta, int st)
 			state[y][x] = player;
 			st ^= zobrist[1][y][x];
 			change_cpoint(y, x);
-			val = alpha_beta(player^1, depth+1, alpha, beta, st);
+			val = alpha_beta(player^1, depth-1, alpha, beta, st);
 			state[y][x] = -1;
 			st ^= zobrist[1][y][x];
 			change_cpoint(y, x);
+
+
 			if(val < beta){
+				hashf = HASHEXACT;
 				beta = val;
 			}
+
 			if(alpha >= beta){
-				return beta;
+				record_hash(depth, alpha, st, HASHALPHA);
+				return alpha;
 			}
 		}
+		record_hash(depth, beta, st, HASHEXACT);
 		return beta;
 	}
 }
@@ -521,10 +578,11 @@ int computer_go(int player)
 
 	init_time();
 	init_zobrist();
+	init_hashtable();
 	st = cal_zobrist();
 
 	beg_t = clock();
-	alpha_beta(player, 0, alpha, beta, st); /* 搜索 */
+	alpha_beta(player, DEPTH, alpha, beta, st); /* 搜索 */
 	end_t = clock();
 
 	use_t = (double)(end_t - beg_t) /  CLOCKS_PER_SEC;

@@ -215,17 +215,22 @@ void cal_point(int y, int x)
 }
 
 /* 计算某玩家整个局面的分数  */
-int cal_all_points(int player)
+int cal_all_points(int player, int *kill)
 {
-	int i, j;
+	int i, j, flag;
 	int ans = 0;
+	*kill = 0;
+	if(player)
+		flag = 3;
+	else 
+		flag = 2;
 	for(i = 0; i < MAP_SIZE; i++){
 		for(j = 0; j < MAP_SIZE; j++){
 			if(state[i][j] == -1){
-				if(player)
-					ans += cpoint[i][j][3];
-				else
-					ans += cpoint[i][j][2];
+				ans += cpoint[i][j][flag];
+				if(cpoint[i][j][flag-2] > (*kill)){
+					*kill = cpoint[i][j][flag-2];
+				}
 			}
 		}
 	}
@@ -350,38 +355,69 @@ void record_hash(int depth, int val, LL st, Type type)
 	hashtable[p].type = type;
 }
 
-int alpha_beta(int player, int depth, int alpha, int beta, LL st)
+int negascout(int player, int depth, int alpha, int beta, LL st)
 {
+	counter++; /* 记录搜索节点数 */
 	int i;
 	int val;
 
+	int kill[2];
+	int s1 = cal_all_points(0, &kill[0]);
+	int s2 = cal_all_points(1, &kill[1]);
+
+	Subpoints sp[250];
+	int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
+	int y, x;
+	int opp = player^1;
+
 	if(depth == 0){ /* 达到搜索深度限制，返回估分 */
-		int s1 = cal_all_points(0);
-		int s2 = cal_all_points(1);
 		int s = s1 - s2;
-		if(((!player) && s >= 0) || (player && s < 0))
+		if(((!player) && s >= 0) || (player && s < 0)) /* 如果 player 占优则返回正值，否则返回负值 */
 			return ABS(s);
 		if(((!player) && s < 0) || (player && s >= 0))
 			return -ABS(s);
 	}
 	
-	Subpoints sp[250];
-	int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
-	int oppkill = 0;
-	int y, x;
-	int opp = player^1;
-	if(depth == DEPTH){
-		comy = sp[0].y;
-		comx = sp[0].x;
+	y = sp[0].y;
+	x = sp[0].x;
+
+
+#if 1
+	/* 己方可一步成五 || (对方不能一步成五 && 己方可一步成绝杀棋) ||  己方可一步成双活三而对方不能一步成绝杀棋*/
+	if(sp[0].kill[player] == 3 || (kill[opp] < 3 && sp[0].kill[player] == 2) || (sp[0].kill[player] == 1 && kill[opp] < 2)){
+		if(depth == DEPTH){
+			comy = y;
+			comx = x;
+		}
+		alpha = inf;
+		return alpha;
 	}
-	for(i = 0; i < 20 && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
+#endif
+
+	state[y][x] = player; /* 在 (y, x) 落子 */
+	change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
+	val = -negascout(player^1, depth-1, -beta, -alpha, st);
+	state[y][x] = -1;
+	change_cpoint(y, x);
+
+	if(val > alpha){
+		if(depth == DEPTH){
+			comy = y;
+			comx = x;
+		}
+		alpha = val;
+	}
+
+	if(alpha >= beta){ /* 千万不能把等号去掉！！！ */
+		return beta;
+	}
+
+	for(i = 1; i < 20 && i < n; i++){ /* 最多选择 20 个候选点 */
 		y = sp[i].y;
 		x = sp[i].x;
-		if(sp[i].kill[opp] > oppkill)
-			oppkill = sp[i].kill[opp]; /* 在遍历可行解的时候记录对方威胁性 */
 #if 1
 		/* 己方可一步成五 || (对方不能一步成五 && 己方可一步成绝杀棋) ||  己方可一步成双活三而对方不能一步成绝杀棋*/
-		if(sp[i].kill[player] == 3 || (oppkill < 3 && sp[i].kill[player] == 2) || (sp[i].kill[player] == 1 && oppkill < 2)){
+		if(sp[i].kill[player] == 3 || (kill[opp] < 3 && sp[i].kill[player] == 2) || (sp[i].kill[player] == 1 && kill[opp] < 2)){
 			if(depth == DEPTH){
 				comy = y;
 				comx = x;
@@ -392,8 +428,17 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 #endif
 		state[y][x] = player; /* 在 (y, x) 落子 */
 		change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
-		val = -alpha_beta(player^1, depth-1, -beta, -alpha, st);
-		counter++; /* 记录搜索节点数 */
+		val = -negascout(player^1, depth-1, -alpha-1, -alpha, st);
+		state[y][x] = -1;
+		change_cpoint(y, x);
+
+		if(alpha < val && val < beta){
+			state[y][x] = player; /* 在 (y, x) 落子 */
+			change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
+			val = -negascout(player^1, depth-1, -beta, -alpha-1, st);
+			state[y][x] = -1;
+			change_cpoint(y, x);
+		}
 
 		if(val > alpha){
 			if(depth == DEPTH){
@@ -402,9 +447,6 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 			}
 			alpha = val;
 		}
-
-		state[y][x] = -1;
-		change_cpoint(y, x);
 
 		if(alpha >= beta){ /* 千万不能把等号去掉！！！ */
 			return beta;
@@ -532,7 +574,7 @@ int computer_go(int player)
 	st = cal_zobrist();
 
 	beg_t = clock();
-	alpha_beta(player, DEPTH, alpha, beta, st); /* 搜索 */
+	negascout(player, DEPTH, alpha, beta, st); /* 搜索 */
 	end_t = clock();
 
 	use_t = (double)(end_t - beg_t) /  CLOCKS_PER_SEC;

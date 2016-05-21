@@ -69,7 +69,7 @@ int compare(const void* _a, const void* _b)
 {
 	Subpoints *a = (Subpoints *)_a;
 	Subpoints *b = (Subpoints *)_b;
-	return ((b->pointb + b->pointw) - (a->pointb + a->pointw));
+	return ((b->point[0] + b->point[1]) - (a->point[0] + a->point[1]));
 }
 
 /* 计算某点在一个方向上的棋形  */
@@ -265,8 +265,8 @@ int set_order(Subpoints *od, int player)
 			if(state[i][j] == -1){
 				od[n].y = i;
 				od[n].x = j;
-				od[n].pointb = cpoint[i][j][2];
-				od[n].pointw = cpoint[i][j][3];
+				od[n].point[0] = cpoint[i][j][2];
+				od[n].point[1] = cpoint[i][j][3];
 #if 0
 				if(player){
 					if(od[n].pointw >= od[n].pointb)
@@ -281,8 +281,8 @@ int set_order(Subpoints *od, int player)
 						od[n].chose = cpoint[i][j][3];
 				}
 #endif
-				od[n].killb = cpoint[i][j][0];
-				od[n].killw = cpoint[i][j][1];
+				od[n].kill[0] = cpoint[i][j][0];
+				od[n].kill[1] = cpoint[i][j][1];
 				n++;
 			}
 		}
@@ -330,7 +330,7 @@ int find_in_hash(int depth, int alpha, int beta, LL st)
 			if(hashtable[p].type == HASHEXACT){
 				return val;
 			}
-			if(hashtable[p].type == HASHALPHA && val <= alpha){
+			if(hashtable[p].type == HASHALPHA && val >= alpha){
 				return alpha;
 			}
 			if(hashtable[p].type == HASHBETA && val >= beta){
@@ -354,118 +354,63 @@ int alpha_beta(int player, int depth, int alpha, int beta, LL st)
 {
 	int i;
 	int val;
-	counter++; /* 记录搜索节点数 */
-
-#if 1
-	if((val = find_in_hash(depth, alpha, beta, st)) != unknow){
-		return val;
-	}
-#endif
 
 	if(depth == 0){ /* 达到搜索深度限制，返回估分 */
 		int s1 = cal_all_points(0);
 		int s2 = cal_all_points(1);
-		record_hash(depth, s1-s2, st, HASHEXACT);
-		return s1 - s2;
+		int s = s1 - s2;
+		if(((!player) && s >= 0) || (player && s < 0))
+			return ABS(s);
+		if(((!player) && s < 0) || (player && s >= 0))
+			return -ABS(s);
 	}
 	
-	if(!player){ /* 电脑 */
-		Subpoints sp[250];
-		LL tst = st;
-		int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
-		int oppkill = 0;
-		int y, x;
-		int hashf = HASHALPHA;
-		if(depth == DEPTH){
-			comy = sp[0].y;
-			comx = sp[0].x;
-		}
-		for(i = 0; i < 20 && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
-			y = sp[i].y;
-			x = sp[i].x;
-			if(sp[i].killw > oppkill)
-				oppkill = sp[i].killw; /* 在遍历可行解的时候记录对方威胁性 */
-#if 1
-			/* 己方可一步成五 || (对方不能一步成五 && 己方可一步成绝杀棋) ||  己方可一步成双活三而对方不能一步成绝杀棋*/
-			if(sp[i].killb == 3 || (oppkill < 3 && sp[i].killb == 2) || (sp[i].killb == 1 && oppkill < 2)){
-				if(depth == DEPTH){
-					comy = y;
-					comx = x;
-				}
-				tst = st;
-				alpha = inf;
-				break;
-			}
-#endif
-			state[y][x] = player; /* 在 (y, x) 落子 */
-			st ^= zobrist[0][y][x];
-			change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
-			val = alpha_beta(player^1, depth-1, alpha, beta, st);
-
-			if(val > alpha){
-				if(depth == DEPTH){
-					comy = y;
-					comx = x;
-				}
-				hashf = HASHEXACT;
-				tst = st;
-				alpha = val;
-			}
-
-			state[y][x] = -1;
-			st ^= zobrist[0][y][x];
-			change_cpoint(y, x);
-
-			if(alpha >= beta){ /* 千万不能把等号去掉！！！ */
-				record_hash(depth, beta, tst, HASHBETA);
-				return beta;
-			}
-		}
-		record_hash(depth, alpha, tst, HASHEXACT);
-		return alpha;
+	Subpoints sp[250];
+	int n = set_order(sp, player); /* 对候选点按高分到低分排序 */
+	int oppkill = 0;
+	int y, x;
+	int opp = player^1;
+	if(depth == DEPTH){
+		comy = sp[0].y;
+		comx = sp[0].x;
 	}
-	else{ /* 玩家 */
-		Subpoints sp[250];
-		LL tst = st;
-		int n = set_order(sp, player);
-		int oppkill = 0;
-		int y, x;
-		int hashf = HASHBETA;
-		for(i = 0; i < 20 && i < n; i++){
-			y = sp[i].y;
-			x = sp[i].x;
-			if(sp[i].killb > oppkill)
-				oppkill = sp[i].killb; /* 在遍历可行解的时候记录对方威胁性 */
+	for(i = 0; i < 20 && i < n; i++){ /* 最多选择 MAP_SIZE 个候选点 */
+		y = sp[i].y;
+		x = sp[i].x;
+		if(sp[i].kill[opp] > oppkill)
+			oppkill = sp[i].kill[opp]; /* 在遍历可行解的时候记录对方威胁性 */
 #if 1
-			if(sp[i].killw == 3 || (oppkill < 3 && sp[i].killw == 2) || (sp[i].killw == 1 && oppkill < 2)){
-				tst = st;
-				beta = -inf;
-				break;
+		/* 己方可一步成五 || (对方不能一步成五 && 己方可一步成绝杀棋) ||  己方可一步成双活三而对方不能一步成绝杀棋*/
+		if(sp[i].kill[player] == 3 || (oppkill < 3 && sp[i].kill[player] == 2) || (sp[i].kill[player] == 1 && oppkill < 2)){
+			if(depth == DEPTH){
+				comy = y;
+				comx = x;
 			}
-#endif
-			state[y][x] = player;
-			st ^= zobrist[1][y][x];
-			change_cpoint(y, x);
-			val = alpha_beta(player^1, depth-1, alpha, beta, st);
-
-			if(val < beta){
-				hashf = HASHEXACT;
-				tst = st;
-				beta = val;
-			}
-
-			state[y][x] = -1;
-			st ^= zobrist[1][y][x];
-			change_cpoint(y, x);
-
-			if(alpha >= beta){
-				record_hash(depth, alpha, tst, HASHALPHA);
-				return alpha;
-			}
+			alpha = inf;
+			break;
 		}
-		record_hash(depth, beta, tst, HASHEXACT);
-		return beta;
+#endif
+		state[y][x] = player; /* 在 (y, x) 落子 */
+		change_cpoint(y, x); /* (y, x) 四个方向上的得分受到影响，需要改变  */
+		val = -alpha_beta(player^1, depth-1, -beta, -alpha, st);
+		counter++; /* 记录搜索节点数 */
+
+		if(val > alpha){
+			if(depth == DEPTH){
+				comy = y;
+				comx = x;
+			}
+			alpha = val;
+		}
+
+		state[y][x] = -1;
+		change_cpoint(y, x);
+
+		if(alpha >= beta){ /* 千万不能把等号去掉！！！ */
+			return beta;
+		}
 	}
+	return alpha;
 }
 
 int copy_and_cal_points()
@@ -517,16 +462,10 @@ int test(int player)
 				sp[n].y = i;
 				sp[n].x = j;
 				co.y = i;
-				sp[n].pointb = cpoint[i][j][2];
-				sp[n].pointw = cpoint[i][j][3];
-				sp[n].killb = cpoint[i][j][0];
-				sp[n].killw = cpoint[i][j][1];
-#if 0
-				if(sp[n].pointb >= sp[n].pointw)
-					sp[n].chose = sp[n].pointb;
-				else
-					sp[n].chose = sp[n].pointw;
-#endif
+				sp[n].point[0] = cpoint[i][j][2];
+				sp[n].point[1] = cpoint[i][j][3];
+				sp[n].kill[0] = cpoint[i][j][0];
+				sp[n].kill[1] = cpoint[i][j][1];
 				n++;
 			}
 		}
@@ -534,13 +473,13 @@ int test(int player)
 	qsort(sp, n, sizeof(Subpoints), compare);
 	killb = killw = 0;
 	for(i = 0 ; i < n; i++){
-		if(sp[i].killb > killb){
-			killb = sp[i].killb;
+		if(sp[i].kill[0] > killb){
+			killb = sp[i].kill[0];
 			kb.y = sp[i].y;
 			kb.x = sp[i].x;
 		}
-		if(sp[i].killw > killw){
-			killw = sp[i].killw;
+		if(sp[i].kill[1] > killw){
+			killw = sp[i].kill[1];
 			kw.y = sp[i].y;
 			kw.x = sp[i].x;
 		}

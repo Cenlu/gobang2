@@ -1,10 +1,12 @@
 #ifndef FUN_H
 #define FUN_H
 
-#define HASHSIZE (1<<25)
+#define HASHSIZE (1<<21)
 #ifndef MAP_SIZE
 #define MAP_SIZE 15
 #endif
+#define ABS(x) \
+	((x)<(0)?(-x):(x))
 
 typedef long long LL;
 typedef enum {HASHALPHA, HASHBETA, HASHEXACT} Type;
@@ -30,10 +32,8 @@ typedef struct{
 typedef struct{
 	int y, x;
 	int chose;
-	int pointb; /* 该点黑棋得分 */
-	int pointw;
-	int killb; /* 该点黑棋情形，3 为成五，2 为绝杀，1 为双活三 */
-	int killw;
+	int point[2]; /* 该点黑棋白棋得分 */
+	int kill[2]; /* 该点情形，3 为成五，2 为绝杀，1 为双活三 */
 }Subpoints;
 
 
